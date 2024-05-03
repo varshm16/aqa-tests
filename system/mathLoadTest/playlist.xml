@@ -23,6 +23,31 @@
 			<variation>Mode150</variation>
 			<variation>Mode650</variation>
 			<variation>Mode1000</variation>
+			<variation>Mode136</variation>
+			<variation>Mode138</variation>
+			<variation>Mode139</variation>
+			<variation>Mode500</variation>
+			<variation>Mode501</variation>
+			<variation>Mode503</variation>
+			<variation>Mode504</variation>
+			<variation>Mode505</variation>
+			<variation>Mode506</variation>
+			<variation>Mode507</variation>
+			<variation>Mode550</variation>
+			<variation>Mode551</variation>
+			<variation>Mode553</variation>
+			<variation>Mode554</variation>
+			<variation>Mode555</variation>
+			<variation>Mode556</variation>
+			<variation>Mode557</variation>
+			<variation>Mode607</variation>
+			<variation>Mode610</variation>
+			<variation>Mode109-CS</variation>
+			<variation>Mode110-CS</variation>
+			<variation>Mode150-CS</variation>
+			<variation>Mode159-CS</variation>
+			<variation>Mode687</variation>
+			<variation>Mode688</variation>
 		</variations>
 		<command>$(SYSTEMTEST_CMD_TEMPLATE) -test=MathLoadTest -test-args=$(Q)workload=math,timeLimit=5m$(Q); \
 	$(TEST_STATUS)</command>
