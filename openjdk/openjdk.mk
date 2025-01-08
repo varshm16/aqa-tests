@@ -27,7 +27,7 @@ ifeq ($(OS),Linux)
 	#
 	# // If this machine/container uses cgroups to limit the amount of 
 	# // memory available to us, we should use that as out memory size.
-	# if [[ -r /sys/fs/cgroup/memory.max ]]; then
+	# if [ -r /sys/fs/cgroup/memory.max ]; then
 	#     // Use this to identify memory maximum (bytes) for cgroup v2.
 	#     CGMEM=`cat /sys/fs/cgroup/memory.max 2>1`; 
 	# else
@@ -37,7 +37,7 @@ ifeq ($(OS),Linux)
 	#
 	# // If those files were empty, or didn't exist, or had non-numbers
 	# // in them, then use /proc/meminfo (converted to bytes).
-	# if [[ ! $$(CGMEM) =~ ^[0-9]+$$ ]]; then
+	# if echo "$${CGMEM}" | grep -Eqv '^[0-9]+$$' ; then
 	#     CGMEM=`expr $${KMEMMB} \* 1024 \* 1024`; 
 	# fi; 
 	#
@@ -50,7 +50,7 @@ ifeq ($(OS),Linux)
 	# if [ "$${KMEMMB}" -lt "$${CGMEMMB}" ]; then 
 	#     echo "$${KMEMMB}"; else echo "$${CGMEMMB}"; 
 	# fi
-	MEMORY_SIZE:=$(shell KMEMMB=`awk '/^MemTotal:/{print int($$2/1024)}' /proc/meminfo`; if [[ -r /sys/fs/cgroup/memory.max ]]; then CGMEM=`cat /sys/fs/cgroup/memory.max 2>1`; else CGMEM=`cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>1`; fi; if [[ ! $${CGMEM} =~ ^[0-9]+$$ ]]; then CGMEM=`expr $${KMEMMB} \* 1024 \* 1024`; fi; CGMEMMB=`expr $${CGMEM} / 1024 / 1024`; if [ "$${KMEMMB}" -lt "$${CGMEMMB}" ]; then echo "$${KMEMMB}"; else echo "$${CGMEMMB}"; fi)
+	MEMORY_SIZE:=$(shell KMEMMB=`awk '/^MemTotal:/{print int($$2/1024)}' /proc/meminfo`; if [ -r /sys/fs/cgroup/memory.max ]; then CGMEM=`cat /sys/fs/cgroup/memory.max 2>1`; else CGMEM=`cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>1`; fi; if echo "$${CGMEM}" | grep -Eqv '^[0-9]+$$' ; then CGMEM=`expr $${KMEMMB} \* 1024 \* 1024`; fi; CGMEMMB=`expr $${CGMEM} / 1024 / 1024`; if [ "$${KMEMMB}" -lt "$${CGMEMMB}" ]; then echo "$${KMEMMB}"; else echo "$${CGMEMMB}"; fi)
 endif
 ifeq ($(OS),Darwin)
 	NPROCS:=$(shell sysctl -n hw.ncpu)
@@ -112,14 +112,16 @@ JTREG_BASIC_OPTIONS += $(JTREG_IGNORE_OPTION)
 # riscv64 machines aren't very fast (yet!!)
 ifeq ($(ARCH), riscv64)
 	JTREG_TIMEOUT_OPTION = -timeoutFactor:16
-else
+# aarch64 linux requires extra time, set timeoutFactor to 12
+else ifneq ($(filter linux_aarch64, $(SPEC)),)
+	JTREG_TIMEOUT_OPTION =  -timeoutFactor:12
 # Multiple by 8 the timeout numbers, except on zOS use 2
-ifneq ($(OS),OS/390)
-	JTREG_TIMEOUT_OPTION =  -timeoutFactor:8
-else
+else ifeq ($(OS),OS/390)
 	JTREG_TIMEOUT_OPTION =  -timeoutFactor:2
+else
+	JTREG_TIMEOUT_OPTION =  -timeoutFactor:8
 endif
-endif
+
 JTREG_BASIC_OPTIONS += $(JTREG_TIMEOUT_OPTION)
 # Create junit xml
 JTREG_XML_OPTION = -xml:verify
@@ -172,9 +174,11 @@ endif
 
 JDK_CUSTOM_TARGET ?= java/math/BigInteger/BigIntegerTest.java
 HOTSPOT_CUSTOM_TARGET ?= gc/stress/gclocker/TestExcessGCLockerCollections.java
+HOTSPOT_CUSTOM_J9_TARGET ?= serviceability/jvmti/GetSystemProperty/JvmtiGetSystemPropertyTest.java
 LANGTOOLS_CUSTOM_TARGET ?= tools/javac/4241573/T4241573.java
 FULLPATH_JDK_CUSTOM_TARGET = $(foreach target,$(JDK_CUSTOM_TARGET),$(JTREG_JDK_TEST_DIR)$(D)$(target))
 FULLPATH_HOTSPOT_CUSTOM_TARGET = $(foreach target,$(HOTSPOT_CUSTOM_TARGET),$(JTREG_HOTSPOT_TEST_DIR)$(D)$(target))
+FULLPATH_HOTSPOT_CUSTOM_J9_TARGET = $(foreach target,$(HOTSPOT_CUSTOM_J9_TARGET),$(JTREG_HOTSPOT_TEST_DIR)$(D)$(target))
 
 JDK_NATIVE_OPTIONS :=
 JVM_NATIVE_OPTIONS :=
@@ -230,12 +234,14 @@ endif
 FEATURE_PROBLEM_LIST_FILE:=
 ifneq (,$(findstring FIPS140_2, $(TEST_FLAG))) 
 	FEATURE_PROBLEM_LIST_FILE:=-exclude:$(Q)$(JTREG_JDK_TEST_DIR)$(D)ProblemList-FIPS140_2.txt$(Q)
+else ifneq (,$(findstring FIPS140_3_OpenJCEPlusFIPS.FIPS140-3, $(TEST_FLAG)))
+	FEATURE_PROBLEM_LIST_FILE:=-exclude:$(Q)$(JTREG_JDK_TEST_DIR)$(D)ProblemList-FIPS140_3_OpenJCEPlusFIPS.FIPS140-3.txt$(Q)
 else ifneq (,$(findstring FIPS140_3_OpenJCEPlus, $(TEST_FLAG)))
 	FEATURE_PROBLEM_LIST_FILE:=-exclude:$(Q)$(JTREG_JDK_TEST_DIR)$(D)ProblemList-FIPS140_3_OpenJcePlus.txt$(Q)
 endif
 
 VENDOR_PROBLEM_LIST_FILE:=
-ifeq ($(JDK_VENDOR),$(filter $(JDK_VENDOR),redhat azul alibaba microsoft))
+ifeq ($(JDK_VENDOR),$(filter $(JDK_VENDOR),redhat azul alibaba microsoft eclipse))
 	VENDOR_FILE:=excludes$(D)vendors$(D)$(JDK_VENDOR)$(D)ProblemList_openjdk$(JDK_VERSION).txt
 	ifneq (,$(wildcard $(VENDOR_FILE)))
 		VENDOR_PROBLEM_LIST_FILE:=-exclude:$(Q)$(TEST_ROOT)$(D)openjdk$(D)$(VENDOR_FILE)$(Q)

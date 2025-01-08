@@ -114,7 +114,9 @@ java/lang/System/LoggerFinder/modules/LoggerInImageTest.java https://github.com/
 java/lang/System/LoggerFinder/modules/NamedLoggerForImageTest.java https://github.com/adoptium/aqa-tests/issues/1267 macosx-all
 java/lang/System/LoggerFinder/modules/UnnamedLoggerForImageTest.java https://github.com/adoptium/aqa-tests/issues/1267 macosx-all
 java/lang/Thread/SleepSanity.java https://github.com/eclipse-openj9/openj9/issues/17638 windows-all
+java/lang/Thread/ThreadSleepEvent.java https://github.com/eclipse-openj9/openj9/issues/20166 generic-all
 java/lang/Thread/UncaughtExceptions.sh https://github.com/eclipse-openj9/openj9/issues/6690 generic-all
+java/lang/Thread/virtual/JfrEvents.java https://github.com/eclipse-openj9/openj9/issues/20166 generic-all
 java/lang/Thread/virtual/StackTraces.java https://github.com/eclipse-openj9/openj9/issues/16045 generic-all
 java/lang/Thread/virtual/stress/GetStackTraceALotWhenPinned.java#id0 https://github.com/eclipse-openj9/openj9/issues/18908 linux-s390x
 java/lang/Thread/virtual/stress/TimedGet.java https://github.com/eclipse-openj9/openj9/issues/15184 macosx-x64
@@ -229,11 +231,17 @@ jdk/net/ExtendedSocketOption/DontFragmentTest.java https://github.com/adoptium/a
 
 ############################################################################
 
+# jdk_imageio
+
+javax/imageio/plugins/jpeg/JPEGsNotAcceleratedTest.java https://github.com/eclipse-openj9/openj9/issues/19527 windows-all
+
+############################################################################
+
 # jdk_io
 
 java/io/CharArrayReader/OverflowInRead.java https://github.com/adoptium/aqa-tests/issues/1500 generic-all
 #java/io/File/GetXSpace.java https://bugs.openjdk.org/browse/JDK-8251017 linux-arm, aix-all
-java/io/File/GetXSpace.java https://bugs.openjdk.java.net/browse/JDK-8251466 windows-all, linux-arm, aix-all
+java/io/File/GetXSpace.java https://bugs.openjdk.java.net/browse/JDK-8251466 windows-all,linux-arm,aix-all
 java/io/FileInputStream/UnreferencedFISClosesFd.java  https://github.com/eclipse-openj9/openj9/issues/3543 generic-all
 java/io/FileOutputStream/UnreferencedFOSClosesFd.java https://github.com/eclipse-openj9/openj9/issues/3543 generic-all
 
@@ -375,6 +383,7 @@ sun/security/mscapi/CngCipher.java 	https://github.ibm.com/runtimes/backlog/issu
 sun/security/mscapi/InteropWithSunRsaSign.java	https://github.ibm.com/runtimes/backlog/issues/795	windows-all
 sun/security/mscapi/KeyAlgorithms.java	https://github.ibm.com/runtimes/backlog/issues/795	windows-all
 sun/security/mscapi/KeyStoreEmptyCertChain.java	https://github.ibm.com/runtimes/backlog/issues/795	windows-all
+sun/security/mscapi/NonAsciiAlias.java https://github.com/eclipse-openj9/openj9/issues/19528 windows-all
 sun/security/mscapi/PublicKeyInterop.java	https://github.ibm.com/runtimes/backlog/issues/795	windows-all
 sun/security/mscapi/RSAEncryptDecrypt.java	https://github.ibm.com/runtimes/backlog/issues/795	windows-all
 sun/security/mscapi/SetDupNameEntry.java 	https://github.ibm.com/runtimes/backlog/issues/795	windows-all
@@ -455,6 +464,7 @@ java/util/stream/test/org/openjdk/tests/java/util/stream/ToArrayOpTest.java http
 java/util/WeakHashMap/GCDuringIteration.java https://github.com/adoptium/aqa-tests/issues/1297 generic-all
 java/util/zip/CloseInflaterDeflaterTest.java	https://github.com/eclipse-openj9/openj9/issues/14948	linux-s390x
 java/util/zip/ZipFile/TestCleaner.java https://github.com/eclipse-openj9/openj9/issues/8872  generic-all
+java/util/zip/ZipFile/ZipSourceCache.java https://github.com/eclipse-openj9/openj9/issues/18987 linux-s390x
 
 ############################################################################
 
@@ -561,8 +571,6 @@ serviceability/jvmti/thread/GetStackTrace/getstacktr05/getstacktr05.java https:/
 serviceability/jvmti/vthread/VThreadNotifyFramePopTest/VThreadNotifyFramePopTest.java https://github.com/adoptium/aqa-tests/issues/1297 aix-all
 serviceability/jvmti/RedefineClasses/RedefinePreviousVersions.java https://github.com/adoptium/aqa-tests/issues/1297 generic-all
 serviceability/jvmti/vthread/ToggleNotifyJvmtiTest/ToggleNotifyJvmtiTest.java https://github.com/adoptium/aqa-tests/issues/1297 generic-all
-serviceability/jvmti/vthread/FollowReferences/VThreadStackRefTest.java#default https://github.com/eclipse-openj9/openj9/issues/18426 generic-all
-serviceability/jvmti/vthread/FollowReferences/VThreadStackRefTest.java#no-vmcontinuations https://github.com/eclipse-openj9/openj9/issues/18426 generic-all
 serviceability/jvmti/vthread/HeapDump/VThreadInHeapDump.java#default https://github.com/eclipse-openj9/openj9/issues/18811 generic-all
 serviceability/jvmti/vthread/HeapDump/VThreadInHeapDump.java#no-vmcontinuations https://github.com/eclipse-openj9/openj9/issues/18811 generic-all
 serviceability/jvmti/thread/GetStackTrace/GetStackTraceAndRetransformTest/GetStackTraceAndRetransformTest.java https://github.com/eclipse-openj9/openj9/issues/18809 generic-all

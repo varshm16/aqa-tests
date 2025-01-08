@@ -18,6 +18,10 @@
 
 # jdk_beans
 
+java/beans/XMLEncoder/java_awt_ScrollPane.java https://github.com/eclipse-openj9/openj9/issues/20531 macosx-all
+java/beans/Introspector/Test5102804.java https://github.com/eclipse-openj9/openj9/issues/20531 linux-all
+java/beans/PropertyEditor/Test6397609.java https://github.com/eclipse-openj9/openj9/issues/20531 linux-all
+
 ############################################################################
 
 # jdk_lang
@@ -125,6 +129,8 @@ sun/management/jmxremote/bootstrap/RmiSslNoKeyStoreTest.sh https://github.com/ad
 ############################################################################
 
 # jdk_jmx
+
+javax/management/MBeanServer/OldMBeanServerTest.java https://github.com/eclipse-openj9/openj9/issues/20777 generic-all
 
 ############################################################################
 
@@ -280,7 +286,6 @@ com/sun/crypto/provider/Cipher/AES/TestAESCiphers/TestAESWithRemoveAddProvider.j
 
 # jdk_security1
 
-java/security/cert/CertPathBuilder/akiExt/AKISerialNumber.java https://github.com/eclipse-openj9/openj9/issues/18875 generic-all
 java/security/KeyPairGenerator/FinalizeHalf.java https://github.com/eclipse-openj9/openj9/issues/8879 windows-all
 java/security/Signature/SignatureLength.java https://github.com/eclipse-openj9/openj9/issues/12083 windows-all
 
@@ -405,6 +410,7 @@ com/sun/jndi/ldap/LdapDnsProviderTest.java https://github.com/adoptium/aqa-tests
 
 # jdk_imageio
 
+javax/imageio/plugins/jpeg/JPEGsNotAcceleratedTest.java https://github.com/eclipse-openj9/openj9/issues/19527 windows-all
 javax/imageio/spi/AppletContextTest/BadPluginConfigurationTest.sh https://github.com/adoptium/aqa-tests/issues/2321 aix-all
 
 ############################################################################

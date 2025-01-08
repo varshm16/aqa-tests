@@ -20,6 +20,12 @@
 	<!-- Disabled from OpenJ9 on osx due to : https://github.com/eclipse-openj9/openj9/issues/4091 -->
 	<test>
 		<testCaseName>MauveSingleThrdLoad_J9_5m</testCaseName>
+		<disables>
+			<disable>
+				<comment>https://github.com/adoptium/STF/issues/142</comment>
+				<version>24+</version>
+			</disable>
+		</disables>
 		<variations>
 			<variation>Mode110</variation>
 			<variation>Mode610</variation>
@@ -46,6 +52,12 @@
 				<impl>hotspot</impl>
 				<platform>riscv64_linux</platform>
 			</disable>
+                        <disable>
+                                <comment>https://github.com/adoptium/aqa-tests/issues/5673</comment>
+                                <version>8</version>
+                                <impl>hotspot</impl>
+                                <platform>.*windows.*</platform>
+                        </disable>
 		</disables>
 		<variations>
 			<variation>Mode150</variation>
@@ -67,6 +79,12 @@
 	<!-- Disabled from OpenJ9 on osx due to : https://github.com/eclipse-openj9/openj9/issues/4091 -->
 	<test>
 		<testCaseName>MauveSingleInvocLoad_J9_5m</testCaseName>
+		<disables>
+			<disable>
+				<comment>https://github.com/adoptium/STF/issues/142</comment>
+				<version>24+</version>
+			</disable>
+		</disables>
 		<variations>
 			<variation>Mode110</variation>
 			<variation>Mode610</variation>
@@ -93,6 +111,12 @@
 				<impl>hotspot</impl>
 				<platform>riscv64_linux</platform>
 			</disable>
+                        <disable>
+                                <comment>https://github.com/adoptium/aqa-tests/issues/5673</comment>
+                                <version>8</version>
+                                <impl>hotspot</impl>
+                                <platform>.*windows.*</platform>
+                        </disable>
 		</disables>
 		<variations>
 			<variation>Mode150</variation>
@@ -118,6 +142,16 @@
 				<comment>https://github.com/adoptium/aqa-tests/issues/4976</comment>
 				<impl>hotspot</impl>
 				<platform>riscv64_linux</platform>
+			</disable>
+			<disable>
+				<comment>https://github.com/adoptium/aqa-tests/issues/5673</comment>
+				<version>8</version>
+				<impl>hotspot</impl>
+				<platform>.*windows.*</platform>
+			</disable>
+			<disable>
+				<comment>https://github.com/adoptium/STF/issues/142</comment>
+				<version>24+</version>
 			</disable>
 		</disables>
 		<variations>

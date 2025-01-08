@@ -26,7 +26,7 @@
 	<!--Properties for this particular build-->
 	<property name="src" location="./OpenJCEPlus/src/" />
 	<property name="build" location="./bin" />
-	<property name="LIB" value="junit4,hamcrest_core,bcprov_jdk18on"/>
+	<property name="LIB" value="maven"/>
 	<import file="${TEST_ROOT}/TKG/scripts/getDependencies.xml"/>
 	<property environment="env" />
 
@@ -35,29 +35,69 @@
 			<available file="OpenJCEPlus" type="dir"/>
 		</condition>
 	</target>
-
+	<set-property name="OPENJCEPLUS_GIT_REPO_ISSET" if-property-isset="env.OPENJCEPLUS_GIT_REPO"/>
 	<if>
-		<isset property="env.OPENJCEPLUS_GIT_REPO"/>
+		<isset property="OPENJCEPLUS_GIT_REPO_ISSET"/>
 		<then>
 			<property name="openjceplusGitRepo" value="${env.OPENJCEPLUS_GIT_REPO}"/>
 		</then>
 		<else>
-			<property name="openjceplusGitRepo" value="https://github.com/IBM/OpenJCEPlus.git"/>
+			<property name="openjceplusGitRepo" value="https://github.com/ibmruntimes/OpenJCEPlus.git"/>
 		</else>
 	</if>
+	<set-property name="OPENJCEPLUS_GIT_BRANCH_ISSET" if-property-isset="env.OPENJCEPLUS_GIT_BRANCH"/>	
 	<if>
-		<isset property="env.OPENJCEPLUS_GIT_BRANCH"/>
+		<isset property="OPENJCEPLUS_GIT_BRANCH_ISSET"/>
 		<then>
 			<property name="openjceplusGitBranch" value="${env.OPENJCEPLUS_GIT_BRANCH}"/>
 		</then>
 		<else>
-			<property name="openjceplusGitBranch" value="java${JDK_VERSION}"/>
+			<property name="openjceplusGitBranch" value="semeru-java${JDK_VERSION}"/>
 		</else>
 	</if>
 
 	<target name="getOpenJcePlusTests" depends="openJcePlusTests.check" unless="openJcePlusTests.exists">
-		<getFileWithRetry file="OpenJCEPlus" command="git clone --depth 1 -q ${openjceplusGitRepo} -b ${openjceplusGitBranch} OpenJCEPlus"/>
-		<checkGitRepoSha repoDir="OpenJCEPlus"/>
+		<getFileWithRetry file="OpenJCEPlus" command="git clone -q ${openjceplusGitRepo} OpenJCEPlus"/>
+		<echo message="git rev-parse ${openjceplusGitBranch} "/>
+		<exec executable="git" failonerror="false" dir="OpenJCEPlus" outputproperty="repo_sha1" resultproperty="code">
+			<arg value="rev-parse"/>
+			<arg value="${openjceplusGitBranch}"/>
+		</exec>
+		<if>
+			<equals arg1="${code}" arg2="128"/>
+			<then>
+				<echo message="git rev-parse origin/${openjceplusGitBranch}"/>
+				<exec executable="git" failonerror="true" dir="OpenJCEPlus" outputproperty="repo_sha2" resultproperty="code2">
+					<arg value="rev-parse"/>
+					<arg value="origin/${openjceplusGitBranch}"/>
+				</exec>
+				<property name="repo_sha" value="${repo_sha2}"/>
+			</then>
+		</if>
+		<if>
+			<not>
+				<isset property="repo_sha"/>
+			</not>
+			<then>
+				<property name="repo_sha" value="${repo_sha1}"/>
+			</then>
+		</if>
+		<if>
+			<isset property="isZOS"/>
+			<then>
+				<propertyregex property="repo_sha" input="${repo_sha}" regexp="\n" replace="" override="true"/>
+			</then>
+		</if>
+		<echo message="git checkout -q -f ${repo_sha} "/>
+		<exec executable="git" failonerror="true" dir="OpenJCEPlus">
+			<arg value="checkout"/>
+			<arg value="-q"/>
+			<arg value="-f"/>
+			<arg value="${repo_sha}"/>
+		</exec>
+		<checkGitRepoSha repoDir="OpenJCEPlus" />
+		<addTestenvProperties repoDir="OpenJCEPlus" repoName="OpenJCEPlus"/>
+
 		<delete dir="./OpenJCEPlus/src/main" />
 	</target>
 
@@ -66,36 +106,13 @@
 		<mkdir dir="${build}" />
 	</target>
 
-	<property name="addExports" value='--add-exports java.base/sun.security.internal.spec=openjceplus --add-exports java.base/sun.security.util=openjceplus,ALL-UNNAMED --add-exports java.base/sun.security.x509=openjceplus,ALL-UNNAMED --add-exports java.base/sun.security.pkcs=openjceplus,ALL-UNNAMED --add-exports java.base/sun.security.internal.interfaces=openjceplus --add-exports java.base/sun.util.logging=openjceplus --add-exports java.base/jdk.internal.logger=openjceplus --add-exports openjceplus/com.ibm.crypto.plus.provider.ock=ALL-UNNAMED --add-exports openjceplus/com.ibm.misc=ALL-UNNAMED' />
-
-	<target name="compile" depends="init,getDependentLibs,getOpenJcePlusTests" description="Using java ${JDK_VERSION} to compile the source  ">
-		<echo>Ant version is ${ant.version}</echo>
-		<echo>============COMPILER SETTINGS============</echo>
-		<echo>===fork:                         yes</echo>
-		<echo>===executable:                   ${compiler.javac}</echo>
-		<echo>===debug:                        on</echo>
-		<echo>===destdir:                      ${DEST}</echo>
-		<javac srcdir="${src}" destdir="${build}" debug="true" fork="true" executable="${compiler.javac}" includeAntRuntime="false" encoding="ISO-8859-1">
-			<compilerarg line='-Xlint:all ${addExports}' />
-			<src path="${src}" />
-			<classpath>
-				<pathelement location="${LIB_DIR}/junit4.jar" />
-				<pathelement location="${LIB_DIR}/hamcrest-core.jar" />
-				<pathelement location="${LIB_DIR}/bcprov-jdk18on.jar" />
-			</classpath>
-		</javac>
+	<target name="compile" depends="init,getDependentLibs,getOpenJcePlusTests" description="Fetching dependencies and test code.">
 	</target>
 
 	<target name="dist" depends="compile" description="generate the distribution">
-		<jar jarfile="${DEST}/openjceplus-tests.jar" filesonly="true">
-			<fileset dir="${build}" />
-			<fileset dir="${src}/../../" includes="*.properties,*.xml" />
-		</jar>
 		<copy todir="${DEST}">
-			<fileset dir="${src}/../../" includes="*.xml,*.mk" />
-			<fileset dir="${LIB_DIR}/" includes="junit4.jar" />
-			<fileset dir="${LIB_DIR}/" includes="hamcrest-core.jar" />
-			<fileset dir="${LIB_DIR}/" includes="bcprov-jdk18on.jar" />
+			<fileset dir="${LIB_DIR}/" includes="apache-maven-bin.tar.gz" />
+			<fileset dir="OpenJCEPlus"/>
 		</copy>
 	</target>
 
@@ -104,29 +121,27 @@
 		<delete dir="${build}" />
 	</target>
 
-	<target name="build" >
+	<target name="build">
 		<if>
-			<or>
-				<contains string="${TEST_FLAG}" substring="OpenJcePlusTests"/>
-				<and>
-					<equals arg1="${JDK_VENDOR}" arg2="ibm" />
-					<equals arg1="${JDK_IMPL}" arg2="openj9" />
-					<not>
-						<matches string="${JDK_VERSION}" pattern="^(8)$$" />
-					</not>
-					<or>
-						<contains string="${SPEC}" substring="aix_ppc-64"/>
-						<contains string="${SPEC}" substring="linux_ppc-64_le"/>
-						<contains string="${SPEC}" substring="linux_x86-64"/>
-						<contains string="${SPEC}" substring="win_x86-64"/>
-						<contains string="${SPEC}" substring="linux_390-64"/>
-					</or>
-				</and>
-			</or>
+			<and>
+				<contains string="${TEST_FLAG}" substring="FIPS140_3_OpenJCEPlusFIPS"/>
+				<equals arg1="${JDK_VENDOR}" arg2="ibm" />
+				<equals arg1="${JDK_IMPL}" arg2="openj9" />
+				<not>
+					<matches string="${JDK_VERSION}" pattern="^(8)$" />
+				</not>
+				<or>
+					<contains string="${SPEC}" substring="aix_ppc-64"/>
+					<contains string="${SPEC}" substring="linux_ppc-64_le"/>
+					<contains string="${SPEC}" substring="linux_x86-64"/>
+					<contains string="${SPEC}" substring="win_x86-64"/>
+					<contains string="${SPEC}" substring="linux_390-64"/>
+				</or>
+			</and>
 			<then>
 				<antcall target="clean" inheritall="true" />
 			</then>
 		</if>
-		
 	</target>
+
 </project>

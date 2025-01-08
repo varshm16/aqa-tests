@@ -47,14 +47,15 @@ else
   OPENJ9_PRAM=""
 endif
 
+# In JDK 24+ any attempts to enable the security manager will result in an error.
 # In JDK18+, java.security.manager == null behaves as -Djava.security.manager=disallow.
 # In JDK17-, java.security.manager == null behaves as -Djava.security.manager=allow.
 # In case of system tests, the base infra (STF) which is used to launch tests utilizes
 # the security manager in net.adoptopenjdk.loadTest.LoadTest.overrideSecurityManager.
 # For system tests to work as expected, -Djava.security.manager=allow behaviour is
-# needed in JDK18+.
+# needed in JDK18-23.
 # Related: https://github.com/eclipse-openj9/openj9/issues/14412
-ifeq ($(filter 8 9 10 11 12 13 14 15 16 17, $(JDK_VERSION)),)
+ifneq ($(filter 18 19 20 21 22 23, $(JDK_VERSION)),)
   export JAVA_TOOL_OPTIONS:=-Djava.security.manager=allow
   $(warning Environment variable JAVA_TOOL_OPTIONS is set to '$(JAVA_TOOL_OPTIONS)')
 endif
@@ -71,15 +72,19 @@ ifdef JVM_OPTIONS
   APPLICATION_OPTIONS := $(APPLICATION_OPTIONS) -jvmArgs $(Q)$(JVM_OPTIONS)$(Q)
 endif
 
+ifndef SYSTEM_LIB_DIR
+  SYSTEM_LIB_DIR=$(SYSTEMTEST_RESROOT)/systemtest_prereqs
+endif
+
 define SYSTEMTEST_CMD_TEMPLATE
 perl $(SYSTEMTEST_RESROOT)$(D)STF$(D)stf.core$(D)scripts$(D)stf.pl \
   -test-root=$(Q)$(SYSTEMTEST_RESROOT)$(D)STF;$(SYSTEMTEST_RESROOT)$(D)aqa-systemtest$(OPENJ9_PRAM)$(Q) \
-  -systemtest-prereqs=$(Q)$(SYSTEMTEST_RESROOT)$(D)systemtest_prereqs$(Q) \
+  -systemtest-prereqs=$(Q)$(SYSTEM_LIB_DIR)$(D)$(Q) \
   -java-args=$(SQ)$(JAVA_ARGS)$(SQ) \
   -results-root=$(REPORTDIR)
 endef
 
-# Default test to be run for system_custom in regular system test builds 
+# Default test to be run for system_custom in regular system test builds
 CUSTOM_TARGET ?= -test=ClassloadingLoadTest
 
 ifneq ($(JDK_VERSION),8)

@@ -13,7 +13,6 @@
 # limitations under the License.
 
 set -eo pipefail
-
 SDKDIR=""
 TESTDIR="$(pwd)"
 PLATFORM=""
@@ -54,7 +53,7 @@ usage ()
 	echo '                [--customized_sourceURL|-S ] : indicate sdk source url if sdk source is set as customized.'
 	echo '                [--username ] : indicate username required if customized url requiring authorization is used'
 	echo '                [--password ] : indicate password required if customized url requiring authorization is used'
-	echo '                [--clone_openj9 ] : optional. ture or false. Clone openj9 if this flag is set to true. Default to true'
+	echo '                [--clone_openj9 ] : optional. true or false. Clone openj9 if this flag is set to true. Default to true'
 	echo '                [--openj9_repo ] : optional. OpenJ9 git repo. Default value https://github.com/eclipse-openj9/openj9.git is used if not provided'
 	echo '                [--openj9_sha ] : optional. OpenJ9 pull request sha.'
 	echo '                [--openj9_branch ] : optional. OpenJ9 branch.'
@@ -141,13 +140,13 @@ parseCommandLineArgs()
 
 			"--debug_images_required" )
 				DEBUG_IMAGES_REQUIRED="$1"; shift;;
-			
+
 			"--code_coverage" )
 				CODE_COVERAGE="$1"; shift;;
 
 			"--curl_opts" )
 				CURL_OPTS="$1"; shift;;
-				
+
 			"--additional_artifacts_required" )
 				ADDITIONAL_ARTIFACTS_REQUIRED="$1"; shift;;
 
@@ -159,6 +158,36 @@ parseCommandLineArgs()
 	done
 
 	echo "TESTDIR: $TESTDIR"
+}
+
+# If the current directory contains only a single directory then squash that directory into the current directory
+squashSingleFolderContentsToCurrentDir()
+{
+        # Does current directory contain one and ONLY one directory?
+        if [[ $(ls -1 | wc -l) -eq 1 ]]; then
+          folder=$(ls -d */)
+          if [ -d "$folder" ]; then
+            echo "Removing top-level folder ${folder}"
+            mv ${folder}* .
+            rmdir "${folder}"
+          fi
+        fi
+}
+
+# Moves the given directory safely, ensuring the target does not exist, fail with error if it does exist
+moveDirectorySafely()
+{
+	if [ $# -lt 2 ]; then
+		echo "Syntax: moveDirectorySafely <sourceDirectory> <targetDirectory>"
+		exit 1
+	fi
+	if [ -d "$2" ]; then
+		echo "ERROR: moveDirectorySafely $1 $2 : target directory $2 already exists"
+		exit 1
+	else
+		echo "Moving directory $1 to $2"
+		mv "$1" "$2"
+	fi
 }
 
 getBinaryOpenjdk()
@@ -202,7 +231,7 @@ getBinaryOpenjdk()
 				download_url+=" ${latestBuildUrl}${n}"
 			fi
 		done
-	elif [ "$CUSTOMIZED_SDK_URL" != "" ]; then
+	elif [ "$SDK_RESOURCE" == "customized" ] && [ "$CUSTOMIZED_SDK_URL" != "" ]; then
 		download_url=$CUSTOMIZED_SDK_URL
 		images="test-images.tar.gz debug-image.tar.gz"
 		download_urls=($download_url)
@@ -234,7 +263,11 @@ getBinaryOpenjdk()
 			arch="x64"
 		fi
 		if [[ $arch = *"x86-32"* ]]; then
-			arch="x32"
+			if [ "$JDK_IMPL" == "openj9" ]; then
+				arch="x86-32"
+			else
+				arch="x32"
+			fi
 		fi
 		release_type="ea"
 		if [ "$SDK_RESOURCE" = "releases" ]; then
@@ -242,15 +275,34 @@ getBinaryOpenjdk()
 		fi
 
 		if [ "$JDK_IMPL" == "openj9" ]; then
-			if [ "$SDK_RESOURCE" = "nightly" ]; then
-				echo "Semeru API does not provide openj9 SDK nightly at the moment. Please use CUSTOMIZED_SDK_URL to provide the SDK URL directly."
+			if [ "$CUSTOMIZED_SDK_URL" == "" ]; then
+				echo "Please use CUSTOMIZED_SDK_URL to provide the base SDK URL for Artifactory."
 				exit 1
 			else
-				download_url="https://ibm.com/semeru-runtimes/api/v3/binary/latest/${JDK_VERSION}/${release_type}/${os}/${arch}/jdk/openj9/${heap_size}/ibm https://ibm.com/semeru-runtimes/api/v3/binary/latest/${JDK_VERSION}/${release_type}/${os}/${arch}/testimage/openj9/${heap_size}/ibm"
-				info_url="https://ibm.com/semeru-runtimes/api/v3/assets/feature_releases/${JDK_VERSION}/${release_type}?architecture=${arch}&heap_size=${heap_size}&image_type=jdk&jvm_impl=openj9&os=${os}&project=jdk&vendor=ibm https://ibm.com/semeru-runtimes/api/v3/assets/feature_releases/${JDK_VERSION}/${release_type}?architecture=${arch}&heap_size=${heap_size}&image_type=testimage&jvm_impl=openj9&os=${os}&project=jdk&vendor=ibm"
+				download_url_base="${CUSTOMIZED_SDK_URL}/${arch}_${os}/"
+				# Artifactory cannot handle duplicate slashes (//) in URL. Remove // except after http:// or https://
+				download_url_base=$(echo "$download_url_base" | sed -r 's|([^:])/+|\1/|g')
+				echo "artifactory URL: ${download_url_base}"
+				download_api_url_base=(${download_url_base//\/ui\/native\//\/artifactory\/api\/storage\/})
+				echo "use artifactory API to get the jdk and/or test images: ${download_api_url_base}"
+				download_urls=$(curl ${curl_options} ${download_api_url_base} | grep -E '.*\.tar\.gz"|.*\.zip"' | grep -E 'testimage|jdk|jre'| sed 's/.*"uri" : "\([^"]*\)".*/\1/')
+				arr=(${download_urls/ / })
+				download_url=()
+				download_url_base=(${download_url_base//\/ui\/native\//\/artifactory\/})
+				echo "downloading files from $latestBuildUrl"
+				for n in "${arr[@]}" ; do
+					if [[ $n =~ 'testimage' ]]; then
+						if [ "$TEST_IMAGES_REQUIRED" == "true" ]; then
+							download_url+=" ${download_url_base}${n}"
+						fi
+					else
+						download_url+=" ${download_url_base}${n}"
+					fi
+				done
+				download_url=$(echo "$download_url" | sed -r 's|([^:])/+|\1/|g')
 			fi
 		else
-			download_url="https://api.adoptium.net/v3/binary/latest/${JDK_VERSION}/${release_type}/${os}/${arch}/jdk/${JDK_IMPL}/${heap_size}/adoptium?project=jdk"
+			download_url="https://api.adoptium.net/v3/binary/latest/${JDK_VERSION}/${release_type}/${os}/${arch}/jdk/${JDK_IMPL}/${heap_size}/adoptium?project=jdk https://api.adoptium.net/v3/binary/latest/${JDK_VERSION}/${release_type}/${os}/${arch}/sbom/${JDK_IMPL}/${heap_size}/adoptium?project=jdk"
 			info_url="https://api.adoptium.net/v3/assets/feature_releases/${JDK_VERSION}/${release_type}?architecture=${arch}&heap_size=${heap_size}&image_type=jdk&jvm_impl=${JDK_IMPL}&os=${os}&project=jdk&vendor=eclipse"
 
 			if [ "$JDK_VERSION" != "8" ]; then
@@ -262,7 +314,7 @@ getBinaryOpenjdk()
 		download_url=""
 		echo "--sdkdir is set to $SDK_RESOURCE. Therefore, skip download jdk binary"
 	fi
-	
+
 	if [ "${download_url}" != "" ]; then
 		for file in $download_url
 		do
@@ -270,8 +322,8 @@ getBinaryOpenjdk()
 				if [[ $file = *?[0-9] ]]; then
 					fileName=$(curl -k ${curl_options} ${file}/ | grep href | sed 's/.*href="//' | sed 's/".*//' |  grep '^[a-zA-Z].*')
 					file=${file}/${fileName}
-				fi 
-			fi 
+				fi
+			fi
 			executeCmdWithRetry "${file##*/}" "_ENCODE_FILE_NEW=UNTAGGED curl -OLJSk${CURL_OPTS} ${curl_options} $file"
 			rt_code=$?
 			if [ $rt_code != 0 ]; then
@@ -310,14 +362,13 @@ getBinaryOpenjdk()
 	jdk_files=`ls`
 	jdk_file_array=(${jdk_files//\\n/ })
 	last_index=$(( ${#jdk_file_array[@]} - 1 ))
-
 	if [[ $last_index == 0 ]]; then
-		if [[ $download_url =~ '*.tar.gz' ]] || [[ $download_url =~ '*.zip' ]]; then
+		if [[ $download_url =~ '*.tar.gz' ]] || [[ $download_url =~ '*.zip' ]] || [[ $jdk_files == '*.zip' ]]; then
 			nested_zip="${jdk_file_array[0]}"
 			echo "${nested_zip} is a nested zip"
 			unzip -q $nested_zip -d .
 			rm $nested_zip
-			jdk_files=`ls *jdk*.tar.gz *jre*.tar.gz *testimage*.tar.gz *debugimage*.tar.gz *jdk*.zip *jre*.zip *testimage*.zip *debugimage*.zip 2> /dev/null || true`
+			jdk_files=$(ls *jdk*.tar.gz *jre*.tar.gz *testimage*.tar.gz *debugimage*.tar.gz *jdk*.zip *jre*.zip *testimage*.zip *debugimage*.zip tests-*.tar.gz symbols-*.tar.gz *static-libs*.tar.gz 2> /dev/null || true)
 			echo "Found files under ${nested_zip}:"
 			echo "${jdk_files}"
 			jdk_file_array=(${jdk_files//\\n/ })
@@ -346,7 +397,13 @@ getBinaryOpenjdk()
 	for file_name in "${jdk_file_array[@]}"
 	do
 		if [[ ! "$file_name" =~ "sbom" ]]; then
-			if [[ "$file_name" =~ "debug-image" ]] || [[ "$file_name" =~ "debugimage" ]]; then
+			if [[ $file_name == *xz ]]; then
+				DECOMPRESS_TOOL=xz
+			else
+				# Noting that this will be set, but not used, for zip files
+				DECOMPRESS_TOOL=gzip
+			fi
+			if [[ "$file_name" =~ "debug-image" ]] || [[ "$file_name" =~ "debugimage" ]] || [[ "$file_name" =~ "symbols-" ]]; then
 				# if file_name contains debug-image, extract into j2sdk-image/jre or j2sdk-image dir
 				# Otherwise, files will be extracted under ./tmp
 				extract_dir="./j2sdk-image"
@@ -354,16 +411,25 @@ getBinaryOpenjdk()
 					extract_dir="./j2sdk-image/jre"
 				fi
 				echo "Uncompressing $file_name over $extract_dir..."
+
+				# Debug image tarballs vary in top-level folders between Vendors, eg.location of bin folder
+				#     temurin: jdk-21.0.5+11-debug-image/jdk-21.0.5+11/bin
+				#     semeru:  jdk-21.0.4+7-debug-image/bin
+
+				# Unpack into a temp directory, remove 1 or maybe 2 top-level single folders, then copy over extract_dir
+				mkdir dir.$$ && cd dir.$$
 				if [[ $file_name == *zip ]] || [[ $file_name == *jar ]]; then
-					unzip -q $file_name -d $extract_dir
+					unzip -q ../$file_name
 				else
-					# some debug-image tar has parent folder ... strip it
-					if tar --version 2>&1 | grep GNU 2>&1; then
-						gzip -cd $file_name | tar xof - -C $extract_dir --strip 1
-					else
-						mkdir dir.$$ && cd dir.$$ && gzip -cd ../$file_name | tar xof - && cd * && tar cf - . | (cd ../../$extract_dir && tar xpf -) && cd ../.. && rm -rf dir.$$
-					fi
+					$DECOMPRESS_TOOL -cd ../$file_name | tar xof -
 				fi
+
+				# Remove 1 possibly 2 top-level folders (debugimage has 2)
+				squashSingleFolderContentsToCurrentDir
+				squashSingleFolderContentsToCurrentDir
+
+				# Copy to extract_dir
+				cp -R * "../${extract_dir}" && cd .. && rm -rf dir.$$
 			else
 				if [ -d "$SDKDIR/jdkbinary/tmp" ]; then
 					rm -rf $SDKDIR/jdkbinary/tmp/*
@@ -377,31 +443,41 @@ getBinaryOpenjdk()
 					cd ./tmp
 					pax -p xam -rzf ../$file_name
 				else
-					gzip -cd $file_name | (cd tmp && tar xof -)
+					$DECOMPRESS_TOOL -cd $file_name | (cd tmp && tar xof -)
 				fi
 
 				cd $SDKDIR/jdkbinary/tmp
+				echo "List files in jdkbinary folder..."
+				ls -l $SDKDIR/jdkbinary
+				echo "List files in jdkbinary/tmp folder..."
+				ls -l
 				jar_dirs=`ls -d */`
 				jar_dir_array=(${jar_dirs//\\n/ })
 				len=${#jar_dir_array[@]}
 				if [ "$len" == 1 ]; then
 					jar_dir_name=${jar_dir_array[0]}
-					if [[ "$jar_dir_name" =~ "test-image" ]] && [ "$jar_dir_name" != "openjdk-test-image" ]; then
-						mv $jar_dir_name ../openjdk-test-image
+					if [[ "$jar_dir_name" =~ "test-image" ]] || [[ "$jar_dir_name" =~ "tests-" ]]; then
+						if [ "$jar_dir_name" != "openjdk-test-image" ]; then
+							moveDirectorySafely $jar_dir_name ../openjdk-test-image
+						fi
+					elif [[ "$jar_dir_name" =~ "static-libs" ]]; then
+						moveDirectorySafely $jar_dir_name ../static-libs
+                                        elif [[ "$jar_dir_name" =~ jdk.*-src/ ]]; then
+                                                moveDirectorySafely $jar_dir_name ../source-image
 					elif [[ "$jar_dir_name" =~ jre* ]] && [ "$jar_dir_name" != "j2re-image" ]; then
-						mv $jar_dir_name ../j2re-image
+						moveDirectorySafely $jar_dir_name ../j2re-image
 					elif [[ "$jar_dir_name" =~ jdk* ]] && [ "$jar_dir_name" != "j2sdk-image" ]; then
-						# If test sdk has already been expanded, this one must be the additional sdk 
+						# If test sdk has already been expanded, this one must be the additional sdk
 						isAdditional=0
-						if [ -f "./j2sdk-image/release" ]; then 
+						if [ -f "./j2sdk-image/release" ]; then
 							isAdditional=1
-						else 
-							if [ "$ADDITIONAL_ARTIFACTS_REQUIRED" == "RI_JDK" ]; then 
+						else
+							if [ "$ADDITIONAL_ARTIFACTS_REQUIRED" == "RI_JDK" ]; then
 								# Check release info
 								if [ -d "./$jar_dir_name/Contents" ]; then # Mac
 									release_info=$( cat ./$jar_dir_name/Contents/Home/release )
 									UNZIPPED_ADDITIONAL_SDK="./$jar_dir_name/Contents/Home/"
-								else 	
+								else
 									release_info=$( cat ./$jar_dir_name/release )
 									UNZIPPED_ADDITIONAL_SDK="./$jar_dir_name/"
 								fi
@@ -420,15 +496,15 @@ getBinaryOpenjdk()
 							echo "RI JDK available at $SDKDIR/additionaljdkbinary/"
 							echo "RI JDK version:"
 							$SDKDIR/additionaljdkbinary/bin/java -version
-						else 
-							mv $jar_dir_name ../j2sdk-image
+						else
+							moveDirectorySafely $jar_dir_name ../j2sdk-image
 						fi
 					# The following only needed if openj9 has a different image name convention
 					elif [ "$jar_dir_name" != "j2sdk-image" ]; then
-						mv $jar_dir_name ../j2sdk-image
+						moveDirectorySafely $jar_dir_name ../j2sdk-image
 					fi
 				elif [ "$len" -gt 1 ]; then
-					mv ../tmp ../j2sdk-image
+					moveDirectorySafely ../tmp ../j2sdk-image
 				fi
 				cd $SDKDIR/jdkbinary
 			fi
@@ -533,7 +609,7 @@ executeCmdWithRetry()
 		count=$(( $count + 1 ))
 	done
 	set -e
-	return "$rt_code"	
+	return "$rt_code"
 }
 
 getFunctionalTestMaterial()
@@ -576,6 +652,7 @@ getFunctionalTestMaterial()
 
 	checkOpenJ9RepoSHA
 
+	ls -l
 	mv openj9/test/TestConfig TestConfig
 	mv openj9/test/Utils Utils
 	if [ -d functional ]; then
@@ -621,7 +698,7 @@ getVendorTestMaterial() {
 		sha=${vendor_shas_array[$i]}
 		dir=${vendor_dirs_array[$i]}
 		dest="vendor_${i}"
-
+		echo "vendor repo is $repoURL"
 		branchOption=""
 		if [ "$branch" != "" ]; then
 			branchOption="-b $branch"
@@ -629,7 +706,7 @@ getVendorTestMaterial() {
 
 		if [[ "$dir" =~ "jck" ]]; then
 			echo "BUILD_LIST is $BUILD_LIST"
-			if [[ "$BUILD_LIST" =~ "jck" || "$BUILD_LIST" =~ "all" ]]; then
+			if [[ "$BUILD_LIST" =~ "jck" || "$BUILD_LIST" =~ "external" ||"$BUILD_LIST" =~ "all" ]]; then
 				echo "Remove existing subdir. $repoURL will be used..."
 				rm -rf jck
 			else
@@ -637,7 +714,7 @@ getVendorTestMaterial() {
 				continue
 			fi
 		fi
-
+		
 		echo "git clone ${branchOption} $repoURL $dest"
 		git clone -q --depth 1 $branchOption $repoURL $dest
 
@@ -763,7 +840,7 @@ checkOpenJ9RepoSHA()
 
 parseCommandLineArgs "$@"
 if [ "$USE_TESTENV_PROPERTIES" = true ]; then
-    teFile="./testenv/testenv.properties"
+	teFile="./testenv/testenv.properties"
 	if [[ "$PLATFORM" == *"zos"* ]]; then
 		echo "load ./testenv/testenv_zos.properties"
 		source ./testenv/testenv_zos.properties
@@ -776,8 +853,10 @@ if [ "$USE_TESTENV_PROPERTIES" = true ]; then
 		echo "load ./testenv/testenv.properties"
 		source ./testenv/testenv.properties
 	fi
-	echo "Running checkTags with $teFile and $JDK_VERSION"
-	./scripts/testenv/checkTags.sh $teFile $JDK_VERSION
+	if [[ $JDK_IMPL != "openj9" && $JDK_IMPL != "ibm" ]]; then
+		echo "Running checkTags with $teFile and $JDK_VERSION"
+		./scripts/testenv/checkTags.sh $teFile $JDK_VERSION
+	fi
 else
 	> ./testenv/testenv.properties
 fi

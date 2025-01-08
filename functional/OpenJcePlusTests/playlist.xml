@@ -25,8 +25,27 @@
 				<platform>^((?!(ppc64_aix|ppc64le_linux|x86-64_linux|x86-64_windows|s390x_linux)).)*$</platform>
 			</disable>
 		</disables>
-		<command>ant -f ${BUILD_ROOT}/functional/OpenJcePlusTests/test.xml -DTEST_JAVA=$(Q)$(JAVA_COMMAND)$(Q) launch_test; \
-	$(TEST_STATUS)</command>
+		<command>cp -r ${TEST_RESROOT}/* ${REPORTDIR}/. ; \
+		cd ${REPORTDIR}; \
+		chmod 755 *.sh; \
+		mkdir apache-maven; \
+		tar xvzf apache-maven-bin.tar.gz -C apache-maven --strip-components 1; \
+		ls -al; \
+		${REPORTDIR}/apache-maven/bin/mvn -version; \
+		${REPORTDIR}/apache-maven/bin/mvn -f ${REPORTDIR}/pom.xml \
+		-Denforcer.skip \
+		-Dtestenvironment=standalonebundled \
+		clean \
+		test-compile \
+		surefire:test; \
+		$(TEST_STATUS); \
+		mkdir junitreports; \
+		cp -r ${REPORTDIR}/target/surefire-reports/* junitreports
+		</command>
+		<features>
+			<feature>FIPS140_3_OpenJCEPlusFIPS:required</feature>
+			<feature>FIPS140_3_OpenJCEPlusFIPS.FIPS140-3:required</feature>
+		</features>
 		<levels>
 			<level>extended</level>
 		</levels>
