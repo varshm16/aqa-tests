@@ -45,8 +45,6 @@
 			<variation>Mode122</variation>
 			<variation>Mode123</variation>
 			<variation>Mode150</variation>
-			<variation>Mode650</variation>
-			<variation>Mode1000</variation>
 			<variation>Mode136</variation>
 			<variation>Mode137</variation>
 			<variation>Mode138</variation>
@@ -70,6 +68,7 @@
 			<variation>Mode607</variation>
 			<variation>Mode610</variation>
 			<variation>Mode614</variation>
+			<variation>Mode615</variation>
 			<variation>Mode109-CS</variation>
 			<variation>Mode110-CS</variation>
 			<variation>Mode150-CS</variation>
